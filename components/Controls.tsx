@@ -219,8 +219,8 @@ const Controls: React.FC<ControlsProps> = ({
   const [coverSpring, coverApi] = useSpring(() => ({
     scale: isPlaying ? 1.04 : 0.94,
     boxShadow: isPlaying
-      ? "0 20px 35px rgba(0,0,0,0.55)"
-      : "0 10px 20px rgba(0,0,0,0.45)",
+      ? "0 12px 22px rgba(0,0,0,0.38)"
+      : "0 6px 14px rgba(0,0,0,0.28)",
     config: { tension: 300, friction: 28 },
   }));
 
@@ -228,8 +228,8 @@ const Controls: React.FC<ControlsProps> = ({
     coverApi.start({
       scale: isPlaying ? 1.04 : 0.94,
       boxShadow: isPlaying
-        ? "0 20px 35px rgba(0,0,0,0.55)"
-        : "0 10px 20px rgba(0,0,0,0.45)",
+        ? "0 12px 22px rgba(0,0,0,0.38)"
+        : "0 6px 14px rgba(0,0,0,0.28)",
       config: { tension: 300, friction: 28 },
     });
   }, [isPlaying, coverApi]);
@@ -244,8 +244,8 @@ const Controls: React.FC<ControlsProps> = ({
       coverApi.start({
         scale: isPlaying ? 1.04 : 0.94,
         boxShadow: isPlaying
-          ? "0 20px 35px rgba(0,0,0,0.55)"
-          : "0 10px 20px rgba(0,0,0,0.45)",
+          ? "0 12px 22px rgba(0,0,0,0.38)"
+          : "0 6px 14px rgba(0,0,0,0.28)",
         config: { tension: 260, friction: 32 },
       });
     }, 180);
@@ -362,14 +362,14 @@ const Controls: React.FC<ControlsProps> = ({
             (coverScale, controlScale) => `scale(${coverScale * controlScale})`
           ),
         }}
-        className="relative aspect-square w-[clamp(16rem,30vw,28rem)] rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 shadow-lg shadow-black/30 ring-1 ring-white/10 overflow-hidden mb-6"
+        className="relative aspect-square w-[clamp(16rem,30vw,28rem)] rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 shadow-[0_8px_20px_rgba(0,0,0,0.24)] overflow-hidden mb-6"
       >
         {coverUrl ? (
           <SmartImage
             src={coverUrl}
             alt="Album Art"
-            containerClassName="absolute inset-0"
-            imgClassName="w-full h-full object-cover"
+            containerClassName="absolute inset-0 overflow-hidden"
+            imgClassName="absolute inset-0 block w-full h-full object-cover scale-[1.02]"
             loading="eager"
           />
         ) : (

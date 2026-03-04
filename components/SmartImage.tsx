@@ -293,7 +293,7 @@ const SmartImage: React.FC<SmartImageProps> = ({
         <img
           src={displaySrc}
           alt={alt}
-          className={imgClassName}
+          className={`absolute inset-0 block w-full h-full object-cover ${imgClassName ?? ""}`.trim()}
           style={imgStyle}
           loading={loading}
           {...imgProps}

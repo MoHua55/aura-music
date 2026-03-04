@@ -111,6 +111,7 @@ export class LyricLine implements ILyricLine {
     currentTime,
     isActive,
     isHovered,
+    hoverProgress,
     hasTimedWords,
     mainFont,
     transFont,
@@ -121,6 +122,7 @@ export class LyricLine implements ILyricLine {
     currentTime: number;
     isActive: boolean;
     isHovered: boolean;
+    hoverProgress: number;
     hasTimedWords: boolean;
     mainFont: string;
     transFont: string;
@@ -137,11 +139,15 @@ export class LyricLine implements ILyricLine {
     this.ctx.textBaseline = "top";
     this.ctx.translate(paddingX, 0);
 
-    // 1. Draw Background (Hover)
-    if (isHovered) {
-      this.ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+    // 1. Draw Background (Hover) — smooth fade using hoverProgress
+    if (hoverProgress > 0.001) {
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${0.08 * hoverProgress})`;
       const bgWidth = Math.max(this.layout.textWidth + 32, 200);
-      this.roundRect(-16, 0, bgWidth, this.layout.height, 16);
+      // Slight scale effect on the background: grows in from 98% to 100%
+      const bgScale = 0.98 + 0.02 * hoverProgress;
+      const bgHeight = this.layout.height * bgScale;
+      const bgY = (this.layout.height - bgHeight) / 2;
+      this.roundRect(-16, bgY, bgWidth, bgHeight, 16);
       this.ctx.fill();
     }
 
@@ -777,14 +783,18 @@ export class LyricLine implements ILyricLine {
     return this.layout?.textWidth || 0;
   }
 
-  public draw(currentTime: number, isActive: boolean, isHovered: boolean) {
+  public draw(currentTime: number, isActive: boolean, isHovered: boolean, hoverProgress: number = isHovered ? 1 : 0) {
     if (!this.layout) return;
+
+    // When hoverProgress is animating (not 0 or 1), we must redraw
+    const hoverAnimating = hoverProgress > 0.001 && hoverProgress < 0.999;
 
     const stateUnchanged =
       !isActive &&
       !this.isDirty &&
       !this.lastIsActive &&
-      this.lastIsHovered === isHovered;
+      this.lastIsHovered === isHovered &&
+      !hoverAnimating;
     if (stateUnchanged) return;
 
     const { main, trans, mainHeight, transHeight } = getFonts(this.isMobile);
@@ -795,7 +805,7 @@ export class LyricLine implements ILyricLine {
     const stateChanged =
       this.lastIsActive !== isActive || this.lastIsHovered !== isHovered;
 
-    if (isActive && !hasTimedWords && !this.isDirty && !stateChanged) {
+    if (isActive && !hasTimedWords && !this.isDirty && !stateChanged && !hoverAnimating) {
       return;
     }
 
@@ -803,6 +813,7 @@ export class LyricLine implements ILyricLine {
       currentTime,
       isActive,
       isHovered,
+      hoverProgress,
       hasTimedWords,
       mainFont: main,
       transFont: trans,

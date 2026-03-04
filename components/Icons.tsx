@@ -323,7 +323,10 @@ export const SearchIcon: React.FC<IconProps> = ({ className }) => (
   </svg>
 );
 
-export const CloudDownloadIcon: React.FC<IconProps> = ({ className }) => (
+export const CloudDownloadIcon: React.FC<IconProps> = ({
+  className = "",
+  ...props
+}) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"
@@ -332,12 +335,17 @@ export const CloudDownloadIcon: React.FC<IconProps> = ({ className }) => (
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    className={`cloud-download-icon ${className}`}
+    {...props}
   >
-    <path d="M4 14.899a7 7 0 1 1 15.718 -2.908a4.5 4.5 0 0 1 5.836 6.302" />
-    <line x1="12" y1="10" x2="12" y2="19" />
-    <line x1="9" y1="16" x2="12" y2="19" />
-    <line x1="15" y1="16" x2="12" y2="19" />
+    {/* 云朵轮廓：底部留出开口以容纳箭头，视觉上更透气 */}
+    <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+
+    {/* 垂直向下的下载箭头主体 */}
+    <path d="M12 12v9" />
+
+    {/* 箭头尖端 */}
+    <path d="m8 17 4 4 4-4" />
   </svg>
 );
 
@@ -412,10 +420,9 @@ export const SettingsIcon: React.FC<IconProps> = ({ className }) => (
   </svg>
 );
 
-export const FullscreenIcon: React.FC<IconProps & { isFullscreen?: boolean }> = ({
-  className,
-  isFullscreen,
-}) => (
+export const FullscreenIcon: React.FC<
+  IconProps & { isFullscreen?: boolean }
+> = ({ className, isFullscreen }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"

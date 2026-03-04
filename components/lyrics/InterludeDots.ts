@@ -62,7 +62,7 @@ export class InterludeDots implements ILyricLine {
         this.textWidth = dotSpacing * 2 + 40; // Approximate width
     }
 
-    public draw(currentTime: number, isActive: boolean, isHovered: boolean) {
+    public draw(currentTime: number, isActive: boolean, isHovered: boolean, hoverProgress: number = isHovered ? 1 : 0) {
         const now = performance.now();
         
         // Calculate dt with clamping to prevent physics explosions on re-entry
@@ -129,9 +129,9 @@ export class InterludeDots implements ILyricLine {
 
         this.ctx.save();
 
-        // Draw hover background (round rect)
-        if (isHovered) {
-            this.ctx.fillStyle = `rgba(255, 255, 255, ${0.08 * Math.min(1, expansion)})`;
+        // Draw hover background (round rect) — smooth fade using hoverProgress
+        if (hoverProgress > 0.001) {
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${0.08 * hoverProgress * Math.min(1, expansion)})`;
             const bgWidth = Math.max(totalDotsWidth + 80, 200);
             const bgHeight = this._height * Math.min(1, expansion);
             const bgY = (this._height - bgHeight) / 2;

@@ -1,5 +1,5 @@
 export interface ILyricLine {
-    draw(currentTime: number, isActive: boolean, isHovered: boolean): void;
+    draw(currentTime: number, isActive: boolean, isHovered: boolean, hoverProgress?: number): void;
     measure(containerWidth: number, suggestedTranslationWidth?: number): void;
     getHeight(): number;
     getCurrentHeight(): number;
