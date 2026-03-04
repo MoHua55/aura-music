@@ -1,35 +1,11 @@
 import { fetchViaProxy } from "./utils";
+import { isMetadataLine } from "./lyrics/types";
 
 const LYRIC_API_BASE = "https://163api.qijieya.cn";
 const METING_API = "https://api.qijieya.cn/meting/";
 const NETEASE_SEARCH_API = "https://163api.qijieya.cn/cloudsearch";
 const NETEASE_API_BASE = "http://music.163.com/api";
 const NETEASECLOUD_API_BASE = "https://163api.qijieya.cn";
-
-const METADATA_KEYWORDS = [
-  "歌词贡献者",
-  "翻译贡献者",
-  "作词",
-  "作曲",
-  "编曲",
-  "制作",
-  "词曲",
-  "词 / 曲",
-  "lyricist",
-  "composer",
-  "arrange",
-  "translation",
-  "translator",
-  "producer",
-];
-
-const escapeRegex = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const metadataKeywordRegex = new RegExp(
-  `^(${METADATA_KEYWORDS.map(escapeRegex).join("|")})\\s*[:：]`,
-  "iu",
-);
 
 const TIMESTAMP_REGEX = /^\[(\d{2}):(\d{2})[\.:](\d{2,3})\](.*)$/;
 
@@ -103,7 +79,7 @@ const isMetadataTimestampLine = (line: string): boolean => {
   const match = trimmed.match(TIMESTAMP_REGEX);
   if (!match) return false;
   const content = match[4].trim();
-  return metadataKeywordRegex.test(content);
+  return isMetadataLine(content);
 };
 
 const parseTimestampMetadata = (line: string) => {
@@ -116,10 +92,8 @@ const isMetadataJsonLine = (line: string): boolean => {
   if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return false;
   try {
     const json = JSON.parse(trimmed);
-    if (json.c && Array.isArray(json.c)) {
-      const content = json.c.map((item: any) => item.tx || "").join("");
-      return metadataKeywordRegex.test(content);
-    }
+    // In NetEase lyric payloads, JSON lines are credit metadata entries.
+    return Boolean(json.c && Array.isArray(json.c));
   } catch {
     // ignore invalid json
   }

@@ -208,7 +208,7 @@ const tokensToLines = (tokens: NeteaseToken[]): LyricLine[] => {
   if (yrcTokens.length === 0) {
     // No YRC data, convert all to plain lines
     return tokens
-      .filter(t => !isMetadataLine(t.text))
+      .filter(t => t.type !== "json" && !isMetadataLine(t.text))
       .map(t => {
         if (!t.text.trim()) {
           return createLine(t.time, INTERLUDE_TEXT, { isInterlude: true });
@@ -231,7 +231,7 @@ const tokensToLines = (tokens: NeteaseToken[]): LyricLine[] => {
     for (let i = 0; i < otherTokens.length; i++) {
       if (usedIndices.has(i)) continue;
       const other = otherTokens[i];
-      if (isMetadataLine(other.text)) continue;
+      if (other.type === "json" || isMetadataLine(other.text)) continue;
 
       const timeDiff = Math.abs(other.time - yrcToken.time);
       if (timeDiff < 3.0) {
@@ -262,7 +262,7 @@ const tokensToLines = (tokens: NeteaseToken[]): LyricLine[] => {
   for (let i = 0; i < otherTokens.length; i++) {
     if (usedIndices.has(i)) continue;
     const token = otherTokens[i];
-    if (isMetadataLine(token.text)) continue;
+    if (token.type === "json" || isMetadataLine(token.text)) continue;
 
     if (!token.text.trim()) {
       if (hasYrcWordAt(token.time)) {
