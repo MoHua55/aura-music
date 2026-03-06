@@ -87,10 +87,6 @@ const getLineEnd = (line: LyricLine) => {
     return line.endTime;
   }
 
-  if (line._endTime && line._endTime > line.time) {
-    return line._endTime;
-  }
-
   if (line.words?.length) {
     const word = line.words[line.words.length - 1];
     if (word.endTime > line.time) {
@@ -241,7 +237,7 @@ export const getScrollGroups = (
   );
   const groups: ScrollGroup[] = [];
 
-  for (let i = 0; i < items.length;) {
+  for (let i = 0; i < items.length; ) {
     const start = items[i];
     const block = [start];
     // Only lines that start while the anchor line itself is alive
@@ -330,7 +326,10 @@ export const useLyricsPhysics = ({
   marginY,
 }: UseLyricsPhysicsProps) => {
   const anchors = useMemo(() => getAnchors(lyrics), [lyrics]);
-  const groups = useMemo(() => getScrollGroups(lyrics, anchors), [anchors, lyrics]);
+  const groups = useMemo(
+    () => getScrollGroups(lyrics, anchors),
+    [anchors, lyrics],
+  );
   const homes = useMemo(() => {
     const list = new Array(lyrics.length).fill(-1);
 
@@ -515,9 +514,7 @@ export const useLyricsPhysics = ({
       const activeSet = new Set(active.activeIndexes);
 
       const activeHeights = (
-        layoutHeights && layoutHeights.length > 0
-          ? layoutHeights
-          : lineHeights
+        layoutHeights && layoutHeights.length > 0 ? layoutHeights : lineHeights
       ).slice();
 
       if (anchor >= 0) {
@@ -640,9 +637,7 @@ export const useLyricsPhysics = ({
         // Guard against undefined targetPos (e.g. during initialization)
         if (typeof targetPos === "number") {
           state.posY.target =
-            -currentGlobalScrollY +
-            targetPos +
-            elasticMarginOffset;
+            -currentGlobalScrollY + targetPos + elasticMarginOffset;
         }
 
         const displacement = state.posY.current - state.posY.target;
