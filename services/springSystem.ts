@@ -127,6 +127,15 @@ export class SpringSystem {
     return this.velocity[key] || 0;
   }
 
+  isSettled(key: string): boolean {
+    const p = this.config[key] || DEFAULT_SPRING;
+    const cur = this.current[key] ?? 0;
+    const tar = this.target[key] ?? cur;
+    const vel = this.velocity[key] ?? 0;
+    const pre = p.precision ?? 0.001;
+    return Math.abs(cur - tar) < pre && Math.abs(vel) < pre;
+  }
+
   update(dt: number): boolean {
     let isMoving = false;
 
