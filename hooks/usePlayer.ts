@@ -23,6 +23,7 @@ import { audioResourceCache } from "../services/cache";
 type MatchStatus = "idle" | "matching" | "success" | "failed";
 
 interface UsePlayerParams {
+  isReady: boolean;
   queue: Song[];
   originalQueue: Song[];
   updateSongInQueue: (id: string, updates: Partial<Song>) => void;
@@ -50,6 +51,7 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
 };
 
 export const usePlayer = ({
+  isReady,
   queue,
   originalQueue,
   updateSongInQueue,
@@ -57,15 +59,8 @@ export const usePlayer = ({
   setOriginalQueue,
 }: UsePlayerParams) => {
   const savedRef = useRef(loadPlaybackSnapshot());
-  const [currentIndex, setCurrentIndex] = useState(() => {
-    if (queue.length === 0) return -1;
-
-    const id = savedRef.current.songId;
-    if (!id) return 0;
-
-    const idx = queue.findIndex((song) => song.id === id);
-    return idx !== -1 ? idx : 0;
-  });
+  const restoredRef = useRef(false);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   const [playState, setPlayState] = useState<PlayState>(PlayState.PAUSED);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -497,11 +492,28 @@ export const usePlayer = ({
   }, [currentSong, updateSongInQueue]);
 
   useEffect(() => {
+    if (!isReady || restoredRef.current) return;
+
+    restoredRef.current = true;
+
+    if (queue.length === 0) return;
+
+    const idx = savedRef.current.songId
+      ? queue.findIndex((song) => song.id === savedRef.current.songId)
+      : -1;
+
+    setCurrentIndex(idx !== -1 ? idx : 0);
+    setMatchStatus("idle");
+  }, [isReady, queue]);
+
+  useEffect(() => {
+    if (!isReady || !restoredRef.current) return;
+
     savePlaybackSnapshot({
       songId: currentSong?.id ?? null,
       playMode,
     });
-  }, [currentSong?.id, playMode]);
+  }, [isReady, currentSong?.id, playMode]);
 
   useEffect(() => {
     if (queue.length === 0) {

@@ -4,7 +4,7 @@ import {
   deleteLocalFiles,
   hydrateLibrarySnapshot,
   loadLibrarySnapshot,
-  restoreLibrarySnapshot,
+  revokeLocalUrls,
   saveLibrarySnapshot,
   saveLocalFiles,
 } from "../services/libraryStore";
@@ -56,16 +56,6 @@ const calculateSimilarity = (str1: string, str2: string): number => {
   return 1 - distance / maxLen;
 };
 
-const isSame = (prev: Song[], next: Song[]) => {
-  if (prev.length !== next.length) {
-    return false;
-  }
-
-  return prev.every((song, idx) => {
-    return song.id === next[idx]?.id && song.fileUrl === next[idx]?.fileUrl;
-  });
-};
-
 export interface ImportResult {
   success: boolean;
   message?: string;
@@ -73,10 +63,9 @@ export interface ImportResult {
 }
 
 export const usePlaylist = () => {
-  const snapRef = useRef(loadLibrarySnapshot());
-  const restoredRef = useRef(restoreLibrarySnapshot(snapRef.current));
-  const [queue, setQueue] = useState<Song[]>(restoredRef.current.queue);
-  const [originalQueue, setOriginalQueue] = useState<Song[]>(restoredRef.current.originalQueue);
+  const [queue, setQueue] = useState<Song[]>([]);
+  const [originalQueue, setOriginalQueue] = useState<Song[]>([]);
+  const [isReady, setIsReady] = useState(false);
   const urlsRef = useRef(new Map<string, string>());
 
   const storeUrl = useCallback((id: string, url: string) => {
@@ -104,17 +93,14 @@ export const usePlaylist = () => {
 
     const load = async () => {
       try {
-        const data = await hydrateLibrarySnapshot(snapRef.current);
-        if (canceled) {
-          const seen = new Set<string>();
-          [...data.queue, ...data.originalQueue].forEach((song) => {
-            if (!song.fileUrl || !song.fileUrl.startsWith("blob:") || seen.has(song.fileUrl)) {
-              return;
-            }
+        const snap = await loadLibrarySnapshot();
+        if (!snap || canceled) {
+          return;
+        }
 
-            seen.add(song.fileUrl);
-            URL.revokeObjectURL(song.fileUrl);
-          });
+        const data = await hydrateLibrarySnapshot(snap);
+        if (canceled) {
+          revokeLocalUrls([...data.queue, ...data.originalQueue]);
           return;
         }
 
@@ -124,12 +110,14 @@ export const usePlaylist = () => {
           }
         });
 
-        setQueue((prev) => (isSame(prev, data.queue) ? prev : data.queue));
-        setOriginalQueue((prev) => {
-          return isSame(prev, data.originalQueue) ? prev : data.originalQueue;
-        });
+        setQueue(data.queue);
+        setOriginalQueue(data.originalQueue);
       } catch (err) {
         console.warn("Failed to restore library", err);
+      } finally {
+        if (!canceled) {
+          setIsReady(true);
+        }
       }
     };
 
@@ -142,8 +130,14 @@ export const usePlaylist = () => {
   }, [dropUrls, storeUrl]);
 
   useEffect(() => {
-    saveLibrarySnapshot(queue, originalQueue);
-  }, [queue, originalQueue]);
+    if (!isReady) {
+      return;
+    }
+
+    saveLibrarySnapshot(queue, originalQueue).catch((err) => {
+      console.warn("Failed to save library", err);
+    });
+  }, [isReady, queue, originalQueue]);
 
   const updateSongInQueue = useCallback(
     (id: string, updates: Partial<Song>) => {
@@ -414,6 +408,7 @@ export const usePlaylist = () => {
   return {
     queue,
     originalQueue,
+    isReady,
     updateSongInQueue,
     addSongs,
     removeSongs,
