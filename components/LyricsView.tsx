@@ -185,6 +185,11 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       marginY,
     },
   );
+  const handlersRef = useRef(handlers);
+
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
 
   // Mouse Interaction State
   const mouseRef = useRef({ x: 0, y: 0 });
@@ -597,47 +602,23 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     }
   };
 
-  if (!lyrics.length) {
-    return (
-      <div className="h-[88vh] lg:h-[80vh] flex flex-col items-center justify-center text-white/40 select-none">
-        {matchStatus === "matching" ? (
-          <div className="animate-pulse">Syncing Lyrics...</div>
-        ) : (
-          <>
-            <div className="text-4xl mb-4 opacity-50">♪</div>
-            <div>Play music to view lyrics</div>
-          </>
-        )}
-      </div>
-    );
-  }
-
   // Manual wheel event attachment to fix passive listener warning
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
-      // We need to call the handler from useLyricsPhysics
-      // But handlers is recreated on render? No, it depends on refs mostly but returned new object
-      // We can use a ref to the latest handler or just disable the warning if we can't preventDefault?
-      // Actually, to prevent default, we MUST attach with passive: false.
-      handlers.onWheel(e as unknown as React.WheelEvent);
+      handlersRef.current.onWheel(e as unknown as React.WheelEvent);
     };
 
-    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [handlers]); // handlers needs to be stable or we re-attach often. 
-  // If handlers changes every render, this effect runs every render.
-  // Let's check useLyricsPhysics. It returns a new object { ... } every render.
-  // This is suboptimal for useEffect deps.
-  // However, fixing the "unable to preventDefault" is the priority.
+  }, []);
 
   return (
     <div
       ref={containerRef}
       className="relative h-[85vh] lg:h-[75vh] w-full overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none"
-      // onWheel removed here
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -654,6 +635,18 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       onClick={handleClick}
     >
       <canvas ref={canvasRef} className="w-full h-full block" />
+      {!lyrics.length && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40 select-none pointer-events-none">
+          {matchStatus === "matching" ? (
+            <div className="animate-pulse">Syncing Lyrics...</div>
+          ) : (
+            <>
+              <div className="text-4xl mb-4 opacity-50">♪</div>
+              <div>Play music to view lyrics</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
