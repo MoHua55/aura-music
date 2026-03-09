@@ -76,12 +76,21 @@ export const usePlayer = ({
     audioRef.current.currentTime = 0;
   }, []);
 
-  const currentSong = queue[currentIndex] ?? null;
-  const accentColor = currentSong?.colors?.[0] || "#a855f7";
+  const setIndex = useCallback(
+    (index: number, list: Song[] = queue) => {
+      songRef.current = index >= 0 ? list[index]?.id ?? null : null;
+      setCurrentIndex(index);
+    },
+    [queue],
+  );
 
-  useEffect(() => {
-    songRef.current = queue[currentIndex]?.id ?? null;
-  }, [currentIndex]);
+  const currentSong =
+    (songRef.current
+      ? queue.find((song) => song.id === songRef.current)
+      : null) ??
+    queue[currentIndex] ??
+    null;
+  const accentColor = currentSong?.colors?.[0] || "#a855f7";
 
   const reorderForShuffle = useCallback(() => {
     if (originalQueue.length === 0) return;
@@ -92,13 +101,13 @@ export const usePlayer = ({
       const current = originalQueue.find((song) => song.id === currentId);
       if (current) {
         setQueue([current, ...shuffled]);
-        setCurrentIndex(0);
+        setIndex(0, [current, ...shuffled]);
         return;
       }
     }
     setQueue(shuffled);
-    setCurrentIndex(0);
-  }, [currentSong, originalQueue, setQueue]);
+    setIndex(shuffled.length > 0 ? 0 : -1, shuffled);
+  }, [currentSong, originalQueue, setIndex, setQueue]);
 
   const toggleMode = useCallback(() => {
     let nextMode: PlayMode;
@@ -117,12 +126,12 @@ export const usePlayer = ({
         const idx = originalQueue.findIndex(
           (song) => song.id === currentSong.id,
         );
-        setCurrentIndex(idx !== -1 ? idx : 0);
+        setIndex(idx !== -1 ? idx : 0, originalQueue);
       } else {
-        setCurrentIndex(originalQueue.length > 0 ? 0 : -1);
+        setIndex(originalQueue.length > 0 ? 0 : -1, originalQueue);
       }
     }
-  }, [playMode, reorderForShuffle, originalQueue, currentSong, setQueue]);
+  }, [playMode, reorderForShuffle, originalQueue, currentSong, setIndex, setQueue]);
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current) return;
@@ -220,29 +229,29 @@ export const usePlayer = ({
 
     pauseAndResetCurrentAudio();
     const next = (currentIndex + 1) % queue.length;
-    setCurrentIndex(next);
+    setIndex(next);
     setMatchStatus("idle");
     setPlayState(PlayState.PLAYING);
-  }, [queue.length, playMode, currentIndex, pauseAndResetCurrentAudio]);
+  }, [queue.length, playMode, currentIndex, pauseAndResetCurrentAudio, setIndex]);
 
   const playPrev = useCallback(() => {
     if (queue.length === 0) return;
     pauseAndResetCurrentAudio();
     const prev = (currentIndex - 1 + queue.length) % queue.length;
-    setCurrentIndex(prev);
+    setIndex(prev);
     setMatchStatus("idle");
     setPlayState(PlayState.PLAYING);
-  }, [queue.length, currentIndex, pauseAndResetCurrentAudio]);
+  }, [queue.length, currentIndex, pauseAndResetCurrentAudio, setIndex]);
 
   const playIndex = useCallback(
     (index: number) => {
       if (index < 0 || index >= queue.length) return;
       pauseAndResetCurrentAudio();
-      setCurrentIndex(index);
+      setIndex(index);
       setPlayState(PlayState.PLAYING);
       setMatchStatus("idle");
     },
-    [queue.length, pauseAndResetCurrentAudio],
+    [queue.length, pauseAndResetCurrentAudio, setIndex],
   );
 
   const handleAudioEnded = useCallback(() => {
@@ -273,7 +282,7 @@ export const usePlayer = ({
         const newIndex = newQueue.length - 1;
 
         // Set index and play state immediately in the same update cycle
-        setCurrentIndex(newIndex);
+        setIndex(newIndex, newQueue);
         setPlayState(PlayState.PLAYING);
         setMatchStatus("idle");
 
@@ -282,7 +291,7 @@ export const usePlayer = ({
 
       setOriginalQueue((prev) => [...prev, song]);
     },
-    [setQueue, setOriginalQueue],
+    [setIndex, setQueue, setOriginalQueue],
   );
 
   const handlePlaylistAddition = useCallback(
@@ -290,14 +299,14 @@ export const usePlayer = ({
       if (added.length === 0) return;
       setMatchStatus("idle");
       if (wasEmpty || currentIndex === -1) {
-        setCurrentIndex(0);
+        setIndex(0);
         setPlayState(PlayState.PLAYING);
       }
       if (playMode === PlayMode.SHUFFLE) {
         reorderForShuffle();
       }
     },
-    [currentIndex, playMode, reorderForShuffle],
+    [currentIndex, playMode, reorderForShuffle, setIndex],
   );
 
   const mergeLyricsWithMetadata = useCallback(
@@ -507,9 +516,9 @@ export const usePlayer = ({
       ? queue.findIndex((song) => song.id === savedRef.current.songId)
       : -1;
 
-    setCurrentIndex(idx !== -1 ? idx : 0);
+    setIndex(idx !== -1 ? idx : 0);
     setMatchStatus("idle");
-  }, [isReady, queue]);
+  }, [isReady, queue, setIndex]);
 
   useEffect(() => {
     if (!isReady || !restoredRef.current) return;
@@ -526,7 +535,7 @@ export const usePlayer = ({
       audioRef.current?.pause();
       if (audioRef.current) audioRef.current.currentTime = 0;
       setPlayState(PlayState.PAUSED);
-      setCurrentIndex(-1);
+      setIndex(-1, []);
       setCurrentTime(0);
       setDuration(0);
       setMatchStatus("idle");
@@ -546,10 +555,10 @@ export const usePlayer = ({
 
     if (currentIndex >= queue.length || !queue[currentIndex]) {
       const nextIndex = Math.max(0, Math.min(queue.length - 1, currentIndex));
-      setCurrentIndex(nextIndex);
+      setIndex(nextIndex);
       setMatchStatus("idle");
     }
-  }, [queue, currentIndex]);
+  }, [queue, currentIndex, setIndex]);
 
   const [speed, setSpeed] = useState(1);
   const [preservesPitch, setPreservesPitch] = useState(true);
