@@ -117,6 +117,7 @@ const SAMPLE_LIMIT = 8;
 const BG_LEAD = 0.9;
 const BG_TRAIL = 0.45;
 const MERGE_EPS = 1e-3;
+const GROUP_TAIL = 0.75;
 
 type ScrollMode = "auto" | "drag" | "momentum" | "wheel" | "manual" | "rebound";
 
@@ -337,6 +338,10 @@ const windowOf = (line: LyricLine) => {
   };
 };
 
+const groupedWith = (head: LyricLine, line: LyricLine) => {
+  return getLineEnd(line) <= getLineEnd(head) + GROUP_TAIL;
+};
+
 export const getScrollGroups = (
   lyrics: LyricLine[],
   anchors: number[] = getAnchors(lyrics),
@@ -362,6 +367,9 @@ export const getScrollGroups = (
           break;
         }
         if (lyrics[index].time >= limit - MERGE_EPS) {
+          break;
+        }
+        if (!groupedWith(lyrics[start], lyrics[index])) {
           break;
         }
 
