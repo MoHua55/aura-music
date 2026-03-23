@@ -34,13 +34,6 @@ const AUTO_SCROLL_SPRING: SpringConfig = {
   precision: 0.08,
 };
 
-const CASCADE_SPRING: SpringConfig = {
-  mass: 1.6,
-  stiffness: 15,
-  damping: 10,
-  precision: 0.12,
-};
-
 const FOCAL_RATIO = 0.35;
 const CASCADE_STEP_MS = 50;
 const CASCADE_DECAY = 1.05;
@@ -532,6 +525,7 @@ export const useLyricsPhysics = ({
   const scrollLimitsRef = useRef({ min: 0, max: 0 });
   const cascadeRef = useRef<CascadeState>(blankCascade());
   const anchorRef = useRef(-1);
+  const prevYRef = useRef(0);
 
   // Track anchor changes to detect seek jumps
   const prevAnchorRef = useRef(-1);
@@ -640,6 +634,7 @@ export const useLyricsPhysics = ({
     const currentScroll = springSystem.current.getCurrent("scrollY");
     const clamped = clampScrollValue(currentScroll, false);
     scrollState.current.targetScrollY = clamped;
+    prevYRef.current = clamped;
     springSystem.current.setValue("scrollY", clamped);
   }, [clampScrollValue, clearSamples]);
 
@@ -666,6 +661,7 @@ export const useLyricsPhysics = ({
     cascadeRef.current = blankCascade();
     anchorRef.current = -1;
     prevAnchorRef.current = -1;
+    prevYRef.current = 0;
     markScrollIdle();
   }, [clearSamples, lyrics, lineHeights, markScrollIdle]);
 
@@ -835,6 +831,8 @@ export const useLyricsPhysics = ({
       }
 
       const currentGlobalScrollY = system.getCurrent("scrollY");
+      const prevY = prevYRef.current;
+      const delta = currentGlobalScrollY - prevY;
       const isDirectManipulation =
         sState.isDragging || sState.mode === "momentum";
       const isUserInteracting =
@@ -875,9 +873,15 @@ export const useLyricsPhysics = ({
       linesState.current.forEach((state, index) => {
         const relativeIndex = index - (anchor === -1 ? 0 : anchor);
         const targetPos = currentPositions[index];
+        const delay = cascadeRef.current.delays.get(index) ?? -1;
+        const waiting = delay > elapsed;
 
         if (typeof targetPos === "number") {
-          state.posY.target = -currentGlobalScrollY + targetPos;
+          if (waiting) {
+            state.posY.target -= delta;
+          } else {
+            state.posY.target = -currentGlobalScrollY + targetPos;
+          }
         }
 
         const displacement = state.posY.current - state.posY.target;
@@ -886,15 +890,12 @@ export const useLyricsPhysics = ({
           state.posY.current = state.posY.target;
           state.posY.velocity = 0;
         } else {
-          const delay = cascadeRef.current.delays.get(index) ?? -1;
           const posConfig =
-            delay > elapsed
-              ? CASCADE_SPRING
-              : isDirectManipulation
-                ? getDragPosSpring(relativeIndex)
-                : isUserInteracting
-                  ? getHoldPosSpring(relativeIndex)
-                  : getLinePosSpring(relativeIndex);
+            isDirectManipulation
+              ? getDragPosSpring(relativeIndex)
+              : isUserInteracting
+                ? getHoldPosSpring(relativeIndex)
+                : getLinePosSpring(relativeIndex);
           updateSpring(state.posY, posConfig, dt);
         }
 
@@ -911,6 +912,8 @@ export const useLyricsPhysics = ({
           updateSpring(state.scale, SCALE_SPRING, dt);
         }
       });
+
+      prevYRef.current = currentGlobalScrollY;
     },
     [
       clampScrollValue,
