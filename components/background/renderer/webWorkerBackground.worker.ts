@@ -94,7 +94,7 @@ void main() {
   float ratio = uResolution.x / uResolution.y;
   float t = uTime;
 
-  // --- Warp UV (reference algorithm) ---
+  // --- Warp UV ---
   vec2 tuv = uv - 0.5;
 
   // Noise-driven rotation
@@ -103,39 +103,43 @@ void main() {
   tuv *= Rot(radians((degree - 0.5) * 720.0 + 180.0));
   tuv.y *= ratio;
 
-  // Sine-wave warp
-  float frequency = 5.0;
-  float amplitude = 30.0;
-  float speed = t * 2.0;
-  tuv.x += sin(tuv.y * frequency + speed) / amplitude;
-  tuv.y += sin(tuv.x * frequency * 1.5 + speed) / (amplitude * 0.5);
+  // Slow undulating warp — broad curves, not ripples
+  float speed = t * 0.8;
+  tuv.x += sin(tuv.y * 2.0 + speed) / 50.0;
+  tuv.y += sin(tuv.x * 2.5 + speed * 0.9) / 50.0;
 
-  // --- 4 colors sampled from blurred texture on wide wandering orbits ---
-  // Each point roams across most of the texture (0.15–0.85 range),
-  // different speeds + phase offsets so they never cluster.
-  vec2 s1 = vec2(0.5 + sin(t * 0.13)         * 0.35,
-                 0.5 + cos(t * 0.17)         * 0.35);
-  vec2 s2 = vec2(0.5 + cos(t * 0.11 + 1.5)  * 0.35,
-                 0.5 + sin(t * 0.15 + 2.3)  * 0.35);
-  vec2 s3 = vec2(0.5 + sin(t * 0.14 + 3.7)  * 0.35,
-                 0.5 + cos(t * 0.12 + 4.1)  * 0.35);
-  vec2 s4 = vec2(0.5 + cos(t * 0.16 + 5.2)  * 0.35,
-                 0.5 + sin(t * 0.10 + 6.8)  * 0.35);
+  // --- 6 colors sampled from blurred texture on wandering orbits ---
+  vec2 s1 = vec2(0.5 + sin(t * 0.013)         * 0.35,
+                 0.5 + cos(t * 0.017)         * 0.35);
+  vec2 s2 = vec2(0.5 + cos(t * 0.011 + 1.5)  * 0.35,
+                 0.5 + sin(t * 0.015 + 2.3)  * 0.35);
+  vec2 s3 = vec2(0.5 + sin(t * 0.014 + 3.7)  * 0.35,
+                 0.5 + cos(t * 0.012 + 4.1)  * 0.35);
+  vec2 s4 = vec2(0.5 + cos(t * 0.016 + 5.2)  * 0.35,
+                 0.5 + sin(t * 0.010 + 6.8)  * 0.35);
+  vec2 s5 = vec2(0.5 + sin(t * 0.009 + 0.8)  * 0.35,
+                 0.5 + cos(t * 0.014 + 5.5)  * 0.35);
+  vec2 s6 = vec2(0.5 + cos(t * 0.012 + 3.1)  * 0.35,
+                 0.5 + sin(t * 0.008 + 7.4)  * 0.35);
 
-  // Crossfade: blend between old and new texture at each sample point
   vec3 c1 = mix(texture2D(uTexB, s1).rgb, texture2D(uTexA, s1).rgb, uMix);
   vec3 c2 = mix(texture2D(uTexB, s2).rgb, texture2D(uTexA, s2).rgb, uMix);
   vec3 c3 = mix(texture2D(uTexB, s3).rgb, texture2D(uTexA, s3).rgb, uMix);
   vec3 c4 = mix(texture2D(uTexB, s4).rgb, texture2D(uTexA, s4).rgb, uMix);
+  vec3 c5 = mix(texture2D(uTexB, s5).rgb, texture2D(uTexA, s5).rgb, uMix);
+  vec3 c6 = mix(texture2D(uTexB, s6).rgb, texture2D(uTexA, s6).rgb, uMix);
 
-  // --- Flowing smoothstep cuts (exactly like reference) ---
-  // Two layers split along slightly rotated warped x-axis,
-  // then blended vertically along warped y-axis.
+  // --- Flowing smoothstep blending across 6 colors ---
+  // Three layers, each split left/right on warped x (reference pattern),
+  // then stacked vertically with two separated smoothstep transitions.
   vec2 rtuv = tuv * Rot(radians(-5.0));
 
   vec3 layer1 = mix(c1, c2, smoothstep(-0.3, 0.2, rtuv.x));
   vec3 layer2 = mix(c3, c4, smoothstep(-0.3, 0.2, rtuv.x));
-  vec3 col = mix(layer1, layer2, smoothstep(0.5, -0.3, tuv.y));
+  vec3 layer3 = mix(c5, c6, smoothstep(-0.3, 0.2, rtuv.x));
+
+  vec3 lower = mix(layer3, layer2, smoothstep(-0.3, 0.1, tuv.y));
+  vec3 col = mix(lower, layer1, smoothstep(0.0, 0.35, tuv.y));
 
   // --- Dark-area processing ---
   float lum = dot(col, vec3(0.299, 0.587, 0.114));
