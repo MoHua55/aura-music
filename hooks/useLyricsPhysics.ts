@@ -76,6 +76,13 @@ const SCALE_SPRING: SpringConfig = {
   precision: 0.001,
 };
 
+const SEEK_POS_SPRING: SpringConfig = {
+  mass: 1.08,
+  stiffness: 124,
+  damping: 20,
+  precision: 0.1,
+};
+
 const USER_SCROLL_SPRING: SpringConfig = {
   mass: 0.9,
   stiffness: 200,
@@ -93,6 +100,15 @@ const REBOUND_SPRING: SpringConfig = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
+const clampAbs = (value: number, max: number) => {
+  if (max <= 0) return 0;
+  return clamp(value, -max, max);
+};
+
+const seekSpeedOf = (view: number) => {
+  return clamp(Math.max(1, view) * 1.6, 1100, 1600);
+};
+
 const RUBBER_BAND_CONSTANT = 1.2;
 const MOMENTUM_FRICTION = 0.955;
 const EDGE_FRICTION = 0.87;
@@ -101,6 +117,7 @@ const MAX_SCROLL_VELOCITY = 3600;
 const WHEEL_SCROLL_GAIN = 0.95;
 const SAMPLE_WINDOW_MS = 120;
 const SAMPLE_LIMIT = 8;
+const SEEK_GAP = 0.2;
 const BG_LEAD = 0.9;
 const BG_TRAIL = 0.45;
 const MERGE_EPS = 1e-3;
@@ -137,6 +154,18 @@ export const lineTargetOf = (
   }
 
   return nextTarget;
+};
+
+export const isJumping = (
+  anchorJump: number,
+  time: number,
+  audioTime?: number,
+  seeking = false,
+) => {
+  if (seeking) return true;
+  if (anchorJump > 5) return true;
+  if (!Number.isFinite(audioTime)) return false;
+  return Math.abs(audioTime - time) > SEEK_GAP;
 };
 
 const cascadeOf = (
@@ -682,13 +711,14 @@ export const useLyricsPhysics = ({
     state: SpringState,
     config: SpringConfig,
     dt: number,
+    maxVelocity = Number.POSITIVE_INFINITY,
   ) => {
     const displacement = state.current - state.target;
     const springForce = -config.stiffness * displacement;
     const dampingForce = -config.damping * state.velocity;
     const acceleration = (springForce + dampingForce) / config.mass;
 
-    state.velocity += acceleration * dt;
+    state.velocity = clampAbs(state.velocity + acceleration * dt, maxVelocity);
     state.current += state.velocity * dt;
 
     if (
@@ -736,7 +766,10 @@ export const useLyricsPhysics = ({
       }
 
       prevAnchorRef.current = anchor;
-      const shouldSnap = anchorJump > 5 || Boolean(audioRef.current?.seeking);
+      const seek = Boolean(audioRef.current?.seeking);
+      const audioTime = audioRef.current?.currentTime;
+      const jumping = isJumping(anchorJump, time, audioTime, seek);
+      const shouldSnap = !jumping && anchorJump > 12;
 
       const computeActiveScrollTarget = () => {
         if (anchor === -1) return 0;
@@ -845,7 +878,7 @@ export const useLyricsPhysics = ({
         (sState.mode === "manual" && hold);
 
       const shifted = prevAnchorIndex !== -1 && anchor !== prevAnchorIndex;
-      if (shouldSnap || isUserInteracting || anchor < 0) {
+      if (shouldSnap || isUserInteracting || anchor < 0 || jumping) {
         if (cascadeRef.current.delays.size > 0) {
           cascadeRef.current = blankCascade();
         }
@@ -886,26 +919,40 @@ export const useLyricsPhysics = ({
 
         if (typeof targetPos === "number") {
           const nextTarget = -currentGlobalScrollY + targetPos;
-          state.posY.target = lineTargetOf(
-            nextTarget,
-            waiting,
-            state.posY.target,
-          );
+          if (jumping) {
+            state.posY.target = nextTarget;
+          } else {
+            state.posY.target = lineTargetOf(
+              nextTarget,
+              waiting,
+              state.posY.target,
+            );
+          }
         }
 
         const displacement = state.posY.current - state.posY.target;
 
-        if (shouldSnap || Math.abs(displacement) > containerHeight * 0.75) {
+        if (
+          shouldSnap ||
+          (!jumping && Math.abs(displacement) > containerHeight * 0.75)
+        ) {
           state.posY.current = state.posY.target;
           state.posY.velocity = 0;
         } else {
           const posConfig =
-            isDirectManipulation
+            jumping
+              ? SEEK_POS_SPRING
+              : isDirectManipulation
               ? getDragPosSpring(relativeIndex)
               : isUserInteracting
                 ? getHoldPosSpring(relativeIndex)
                 : getLinePosSpring(relativeIndex);
-          updateSpring(state.posY, posConfig, dt);
+          updateSpring(
+            state.posY,
+            posConfig,
+            dt,
+            jumping ? seekSpeedOf(containerHeight) : Number.POSITIVE_INFINITY,
+          );
         }
 
         const targetScale = activeSet.has(index)
