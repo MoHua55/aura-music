@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const productionBase = env.VITE_BASE_PATH || '/aura-music/';
   return {
-    base: mode === 'production' ? productionBase : '/',
+    base: './',
     server: {
       port: 3000,
       host: '0.0.0.0',
